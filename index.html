@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FX Position Size Calculator</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --card: #161d2e;
+    --border: #232c42;
+    --text: #e7ecf7;
+    --muted: #8b93a7;
+    --accent: #4f8cff;
+    --accent-2: #22c58b;
+    --danger: #ff5c5c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+  .wrap { width: 100%; max-width: 520px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    margin-top: 14px;
+  }
+  label:first-child { margin-top: 0; }
+  input, select {
+    width: 100%;
+    background: #0f1420;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  .results { display: none; }
+  .results.show { display: block; }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-row .label { color: var(--muted); }
+  .result-row .value { font-weight: 600; }
+  .highlight { color: var(--accent-2); }
+  .warn { color: var(--danger); font-size: 0.85rem; margin-top: 10px; }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 20px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FX Position Size Calculator</h1>
+  <p class="sub">Work out how many lots to trade based on your account risk, stop loss, and pair — free tool by <a href="https://fxmare.com" style="color:var(--accent);text-decoration:none;">FXMARE</a>.</p>
+
+  <div class="card">
+    <label for="balance">Account balance</label>
+    <div class="row">
+      <div>
+        <input type="number" id="balance" value="1000" min="0" step="1">
+      </div>
+      <div style="max-width:110px;">
+        <select id="currency">
+          <option value="USD" selected>USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="JPY">JPY</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="risk">Risk per trade (%)</label>
+    <input type="number" id="risk" value="1" min="0.01" max="100" step="0.1">
+
+    <label for="stopLoss">Stop loss (pips)</label>
+    <input type="number" id="stopLoss" value="20" min="0.1" step="0.1">
+
+    <label for="pair">Currency pair</label>
+    <select id="pair">
+      <option value="10">EUR/USD (~$10 / pip / lot)</option>
+      <option value="10">GBP/USD (~$10 / pip / lot)</option>
+      <option value="10">AUD/USD (~$10 / pip / lot)</option>
+      <option value="9.1">USD/JPY (~$9.10 / pip / lot)</option>
+      <option value="9.1">USD/CHF (~$9.10 / pip / lot)</option>
+      <option value="7.4">USD/CAD (~$7.40 / pip / lot)</option>
+      <option value="custom">Custom pip value…</option>
+    </select>
+
+    <div id="customWrap" style="display:none;">
+      <label for="customPip">Custom pip value ($ per standard lot)</label>
+      <input type="number" id="customPip" value="10" min="0.01" step="0.01">
+    </div>
+
+    <button onclick="calculate()">Calculate position size</button>
+  </div>
+
+  <div class="card results" id="resultsCard">
+    <div class="result-row">
+      <span class="label">Amount at risk</span>
+      <span class="value" id="rAmount">—</span>
+    </div>
+    <div class="result-row">
+      <span class="label">Position size</span>
+      <span class="value highlight" id="rLots">—</span>
+    </div>
+    <div class="result-row">
+      <span class="label">Units</span>
+      <span class="value" id="rUnits">—</span>
+    </div>
+    <div class="result-row">
+      <span class="label">Mini lots</span>
+      <span class="value" id="rMini">—</span>
+    </div>
+    <div class="result-row">
+      <span class="label">Micro lots</span>
+      <span class="value" id="rMicro">—</span>
+    </div>
+    <div class="warn" id="warnMsg"></div>
+  </div>
+
+  <footer>
+    Educational tool only — not financial advice. Pip values shown are approximate for a USD account and vary with live exchange rates.
+    <br>Built by <a href="https://fxmare.com">FXMARE</a> · MIT licensed
+  </footer>
+</div>
+
+<script>
+document.getElementById('pair').addEventListener('change', function () {
+  document.getElementById('customWrap').style.display = this.value === 'custom' ? 'block' : 'none';
+});
+
+function fmt(n, decimals) {
+  return Number(n).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function calculate() {
+  const balance = parseFloat(document.getElementById('balance').value) || 0;
+  const riskPct = parseFloat(document.getElementById('risk').value) || 0;
+  const stopLoss = parseFloat(document.getElementById('stopLoss').value) || 0;
+  const pairSelect = document.getElementById('pair');
+  const pipValuePerLot = pairSelect.value === 'custom'
+    ? (parseFloat(document.getElementById('customPip').value) || 0)
+    : parseFloat(pairSelect.value);
+
+  const warnEl = document.getElementById('warnMsg');
+  warnEl.textContent = '';
+
+  if (balance <= 0 || riskPct <= 0 || stopLoss <= 0 || pipValuePerLot <= 0) {
+    warnEl.textContent = 'Fill in all fields with values greater than zero.';
+    document.getElementById('resultsCard').classList.remove('show');
+    return;
+  }
+
+  const riskAmount = balance * (riskPct / 100);
+  const lots = riskAmount / (stopLoss * pipValuePerLot);
+  const units = lots * 100000;
+
+  document.getElementById('rAmount').textContent = fmt(riskAmount, 2) + ' ' + document.getElementById('currency').value;
+  document.getElementById('rLots').textContent = fmt(lots, 2) + ' standard lots';
+  document.getElementById('rUnits').textContent = fmt(units, 0) + ' units';
+  document.getElementById('rMini').textContent = fmt(lots * 10, 2) + ' mini lots';
+  document.getElementById('rMicro').textContent = fmt(lots * 100, 2) + ' micro lots';
+
+  if (lots > 50) {
+    warnEl.textContent = 'This position size is unusually large — double check your inputs.';
+  }
+
+  document.getElementById('resultsCard').classList.add('show');
+}
+
+calculate();
+</script>
+</body>
+</html>
